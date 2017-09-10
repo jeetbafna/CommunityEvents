@@ -92,3 +92,52 @@ exports.create = function(req, res, next){
 
 	workflow.emit('validate');
 };
+
+exports.edit = function(req, res, next){
+	req.app.db.models.Event.findById(req.params.id).exec(function(err, event){
+		if(err){
+			return next(err);
+		}
+
+		if(req.xhr){
+			res.send(event);
+		} else{
+			res.render('events/edit',{event: event});
+		}
+	});
+
+};
+
+
+exports.update = function(req, res, next){
+	var workflow = req.app.utility.workflow(req,res);
+	workflow.on('validate', function(){
+		if(!req.body.name){
+			workflow.outcome.errors.push('please enter a name');
+			return workflow.emit('response');
+		}
+		workflow.emit('updateEvent');
+	});
+	workflow.on('updateEvent',function(){
+		var fieldsToSet={
+			name: req.body.name,
+			description: req.body.description,
+			venue: req.body.venue,
+			date: req.body.date,
+			startTime: req.body.startTime,
+			endTime: req.body.endTime,
+			username: req.user.username
+		};
+		req.app.db.models.Event.findByIdAndUpdate(req.params.id, fieldsToSet, function(err, event){
+			if(err){
+				return workflow.emit('exception', err);
+			}
+			workflow.outcome.record = event;
+			req.flash('success', 'Event updated');
+			res.location('/events/show/'+req.params.id);
+		    res.redirect('/events/show/'+req.params.id);
+		});
+	});
+
+	workflow.emit('validate');
+};
